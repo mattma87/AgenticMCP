@@ -67,7 +67,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return [TextContent(type="text", text=f"Current time in {tz}: {now.isoformat()}")]
         except Exception:
             utc_now = datetime.now(timezone.utc)
-            return [TextContent(type="text", text=f"Current UTC time: {utc_now.iso_format()}")]
+            return [TextContent(type="text", text=f"Current UTC time: {utc_now.isoformat()}")]
     else:
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
 

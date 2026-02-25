@@ -1,0 +1,70 @@
+{
+  "mcpServers": {
+    "agenticmcp-postgres": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--name",
+        "agenticmcp-client",
+        "-e",
+        "MCP_DB_HOST=host.docker.internal",
+        "-e",
+        "MCP_DB_PORT=5432",
+        "-e",
+        "MCP_DB_NAME=app_db",
+        "-e",
+        "MCP_DB_USER=app_user",
+        "-e",
+        "MCP_DB_PASSWORD=app_password_change_me",
+        "-e",
+        "MCP_ROLE=reader",
+        "-v",
+        "${HOME}/.agenticmcp:/app/config:ro",
+        "ghcr.io/YOUR_USERNAME/agenticmcp:latest"
+      ]
+    },
+    "agenticmcp-postgres-admin": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--name",
+        "agenticmcp-admin",
+        "-e",
+        "MCP_DB_HOST=host.docker.internal",
+        "-e",
+        "MCP_DB_PORT=5432",
+        "-e",
+        "MCP_DB_NAME=app_db",
+        "-e",
+        "MCP_DB_USER=app_user",
+        "-e",
+        "MCP_DB_PASSWORD=app_password_change_me",
+        "-e",
+        "MCP_ROLE=admin",
+        "-v",
+        "${HOME}/.agenticmcp:/app/config:ro",
+        "ghcr.io/YOUR_USERNAME/agenticmcp:latest"
+      ]
+    },
+    "agenticmcp-postgres-local": {
+      "command": "python",
+      "args": [
+        "-m",
+        "agenticmcp.server"
+      ],
+      "env": {
+        "MCP_DB_HOST": "localhost",
+        "MCP_DB_PORT": "5432",
+        "MCP_DB_NAME": "app_db",
+        "MCP_DB_USER": "app_user",
+        "MCP_DB_PASSWORD": "app_password_change_me",
+        "MCP_ROLE": "reader",
+        "MCP_PERMISSIONS_FILE": "${HOME}/.agenticmcp/permissions.yaml"
+      }
+    }
+  }
+}

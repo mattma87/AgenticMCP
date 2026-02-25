@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "agenticmcp-postgres": {
+      "url": "stdio://python?args=-m&args=agenticmcp.server",
+      "env": {
+        "MCP_DB_HOST": "localhost",
+        "MCP_DB_PORT": "5432",
+        "MCP_DB_NAME": "app_db",
+        "MCP_DB_USER": "app_user",
+        "MCP_DB_PASSWORD": "app_password_change_me",
+        "MCP_ROLE": "reader"
+      }
+    }
+  }
+}

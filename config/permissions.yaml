@@ -1,0 +1,200 @@
+# AgenticMCP Permissions Configuration
+# Define roles and their database access permissions
+
+version: "1.0"
+
+# Default role if none specified via MCP_ROLE environment variable
+default_role: "reader"
+
+# Role definitions
+# Each role can have: tables, operations, columns (restrictions), row_filters
+roles:
+  # Admin role - full access to everything including raw SQL queries
+  admin:
+    description: "Full administrative access to all tables and raw SQL"
+    tables: ["*"]
+    operations: ["*"]
+
+  # Reader role - read-only access to specific tables
+  reader:
+    description: "Read-only access to public data"
+    tables: ["users", "products", "orders", "analytics"]
+    operations: ["read"]
+    # Column-level restrictions - only these columns visible
+    columns:
+      users: ["id", "name", "created_at"]  # Excludes email, phone
+    # Row-level security filters
+    row_filters:
+      orders: "status = 'completed'"
+
+  # Writer role - can read and write specific tables
+  writer:
+    description: "Read and write access to user-generated content"
+    tables: ["users", "orders", "order_items"]
+    operations: ["read", "write"]
+    # Row filter ensures users can only see their own data
+    row_filters:
+      orders: "user_id = {user_id}"
+      order_items: "user_id = {user_id}"
+
+  # Analytics role - read-only access to aggregated data
+  analytics:
+    description: "Read-only access to analytics tables"
+    tables: ["analytics", "products", "orders"]
+    operations: ["read"]
+    row_filters:
+      orders: "tenant_id = {tenant_id}"
+
+  # Support role - read access to user data for support purposes
+  support:
+    description: "Read access to user data for customer support"
+    tables: ["users", "orders"]
+    operations: ["read"]
+    columns:
+      users: ["id", "name", "email", "created_at"]  # Can see email for support
+
+# Table schema definitions
+# These define the structure for permissions and validation
+tables:
+  users:
+    primary_key: "id"
+    columns:
+      - name: id
+        type: "integer"
+        description: "User ID"
+
+      - name: email
+        type: "text"
+        sensitive: true
+        description: "User email address"
+        visible_to: ["admin", "support"]
+
+      - name: phone
+        type: "text"
+        sensitive: true
+        description: "User phone number"
+        visible_to: ["admin"]
+
+      - name: name
+        type: "text"
+        description: "User's full name"
+
+      - name: tenant_id
+        type: "integer"
+        description: "Tenant/organization ID"
+
+      - name: created_at
+        type: "timestamp"
+        description: "Account creation timestamp"
+
+      - name: updated_at
+        type: "timestamp"
+        description: "Last update timestamp"
+
+  products:
+    primary_key: "id"
+    columns:
+      - name: id
+        type: "integer"
+        description: "Product ID"
+
+      - name: name
+        type: "text"
+        description: "Product name"
+
+      - name: description
+        type: "text"
+        description: "Product description"
+
+      - name: price
+        type: "decimal"
+        description: "Product price"
+
+      - name: stock
+        type: "integer"
+        description: "Stock quantity"
+
+      - name: tenant_id
+        type: "integer"
+        description: "Tenant/organization ID"
+
+      - name: created_at
+        type: "timestamp"
+        description: "Creation timestamp"
+
+  orders:
+    primary_key: "id"
+    columns:
+      - name: id
+        type: "integer"
+        description: "Order ID"
+
+      - name: user_id
+        type: "integer"
+        description: "Customer user ID"
+
+      - name: status
+        type: "text"
+        description: "Order status"
+
+      - name: total
+        type: "decimal"
+        description: "Order total"
+
+      - name: tenant_id
+        type: "integer"
+        description: "Tenant/organization ID"
+
+      - name: created_at
+        type: "timestamp"
+        description: "Order creation timestamp"
+
+      - name: updated_at
+        type: "timestamp"
+        description: "Last update timestamp"
+
+  order_items:
+    primary_key: "id"
+    columns:
+      - name: id
+        type: "integer"
+        description: "Line item ID"
+
+      - name: order_id
+        type: "integer"
+        description: "Parent order ID"
+
+      - name: product_id
+        type: "integer"
+        description: "Product ID"
+
+      - name: quantity
+        type: "integer"
+        description: "Quantity ordered"
+
+      - name: price
+        type: "decimal"
+        description: "Price at time of order"
+
+  analytics:
+    primary_key: "id"
+    columns:
+      - name: id
+        type: "integer"
+        description: "Analytics entry ID"
+
+      - name: metric_name
+        type: "text"
+        description: "Name of the metric"
+
+      - name: metric_value
+        type: "decimal"
+        description: "Metric value"
+
+      - name: tenant_id
+        type: "integer"
+        description: "Tenant/organization ID"
+
+      - name: recorded_at
+        type: "timestamp"
+        description: "When the metric was recorded"

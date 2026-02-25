@@ -1,0 +1,75 @@
+# Docker Compose configuration for AgenticMCP with PostgreSQL
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: agenticmcp-postgres
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_password_change_me
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d app_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agenticmcp-network
+
+  agenticmcp-admin:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: agenticmcp-admin
+    environment:
+      MCP_DB_HOST: postgres
+      MCP_DB_PORT: 5432
+      MCP_DB_NAME: app_db
+      MCP_DB_USER: app_user
+      MCP_DB_PASSWORD: app_password_change_me
+      MCP_ROLE: admin
+      MCP_PERMISSIONS_FILE: /app/config/permissions.yaml
+    volumes:
+      - ../config:/app/config:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - agenticmcp-network
+    # Use "docker compose up" to run, but MCP needs stdio
+    # For actual MCP usage, run the container directly with docker run
+
+  agenticmcp-reader:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: agenticmcp-reader
+    environment:
+      MCP_DB_HOST: postgres
+      MCP_DB_PORT: 5432
+      MCP_DB_NAME: app_db
+      MCP_DB_USER: app_user
+      MCP_DB_PASSWORD: app_password_change_me
+      MCP_ROLE: reader
+      MCP_PERMISSIONS_FILE: /app/config/permissions.yaml
+    volumes:
+      - ../config:/app/config:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - agenticmcp-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  agenticmcp-network:
+    driver: bridge

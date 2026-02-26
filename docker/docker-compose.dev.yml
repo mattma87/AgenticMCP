@@ -1,0 +1,103 @@
+# AgenticMCP v2 - Docker Compose for Development
+# This configuration includes hot-reload and additional debugging tools
+
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: agenticmcp-postgres-dev
+    environment:
+      POSTGRES_DB: agenticmcp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Mount local init script for quick resets
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agenticmcp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agenticmcp-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: agenticmcp-backend-dev
+    environment:
+      # Database
+      BACKEND_DB_HOST: postgres
+      BACKEND_DB_PORT: 5432
+      BACKEND_DB_NAME: agenticmcp
+      BACKEND_DB_USER: postgres
+      BACKEND_DB_PASSWORD: postgres
+      # JWT
+      BACKEND_JWT_SECRET: agenticmcp-secret-key-change-in-production
+      # App
+      BACKEND_DEBUG: "true"
+    ports:
+      - "8000:8000"
+      # Mount source for hot reload
+    volumes:
+      - ./backend:/app/backend:ro
+      - ./src:/app/src:ro
+      - ./pyproject.toml:/app/pyproject.toml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - agenticmcp-network
+
+  # Token generation helper container
+  token-generator:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mcp
+    container_name: agenticmcp-token-generator
+    environment:
+      BACKEND_JWT_SECRET: agenticmcp-secret-key-change-in-production
+      BACKEND_DEBUG: "true"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - agenticmcp-network
+    # Run token generation and exit
+    command: ["python", "-c", "
+from backend.auth.jwt import get_jwt_manager
+from datetime import timedelta
+import json
+manager = get_jwt_manager()
+tokens = {
+    'reader': manager.create_token(1, 'reader', 1),
+    'admin': manager.create_token(1, 'admin', 1),
+    'writer': manager.create_token(1, 'writer', 1),
+}
+print('=' * 60)
+print('JWT Tokens Generated')
+print('=' * 60)
+for role, token in tokens.items():
+    print(f'{role.upper()}:')
+    print(f'  {token}')
+    print()
+print('Use with MCP client:')
+print('  docker run -i --rm -e MCP_API_URL=http://backend:8000')
+print('           -e MCP_JWT_TOKEN=<token>')
+print('           agenticmcp-mcp')
+"]
+    profiles:
+      - tokens
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  agenticmcp-network:
+    driver: bridge

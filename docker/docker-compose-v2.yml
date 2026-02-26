@@ -1,0 +1,96 @@
+# AgenticMCP v2 - Docker Compose Configuration
+# FastAPI Backend + PostgreSQL + MCP Server
+
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: agenticmcp-postgres
+    environment:
+      POSTGRES_DB: agenticmcp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agenticmcp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agenticmcp-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: agenticmcp-backend
+    environment:
+      # Database
+      BACKEND_DB_HOST: postgres
+      BACKEND_DB_PORT: 5432
+      BACKEND_DB_NAME: agenticmcp
+      BACKEND_DB_USER: postgres
+      BACKEND_DB_PASSWORD: postgres
+      # JWT
+      BACKEND_JWT_SECRET: agenticmcp-secret-key-change-in-production
+      # App
+      BACKEND_DEBUG: "true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - agenticmcp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # MCP Server (API mode) - Reader role
+  mcp-reader:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mcp
+    container_name: agenticmcp-mcp-reader
+    environment:
+      # API mode settings
+      MCP_API_URL: http://backend:8000
+      MCP_JWT_TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJyb2xlIjoicmVhZGVyIiwidGVuYW50X2lkIjoxLCJleHAiOjE3NzIxNTExNzIsImlhdCI6MTc3MjA2NDc3Mn0.x6SrtnDGyBNTvnUCuCGv7slda6_-D_R38khImr6OUv4
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - agenticmcp-network
+    # MCP runs via stdio, so we keep it alive but don't expose ports
+    command: ["tail", "-f", "/dev/null"]
+
+  # MCP Server (API mode) - Admin role
+  mcp-admin:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mcp
+    container_name: agenticmcp-mcp-admin
+    environment:
+      # API mode settings
+      MCP_API_URL: http://backend:8000
+      MCP_JWT_TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJyb2xlIjoiYWRtaW4iLCJ0ZW5hbnRfaWQiOjEsImV4cCI6MTc3MjE1MTQwNiwiaWF0IjoxNzcyMDY1MDA2fQ.XiWddb0-5kVoeiRckcemZ8ckwfCtECKwIJaQAHlU-hw
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - agenticmcp-network
+    command: ["tail", "-f", "/dev/null"]
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  agenticmcp-network:
+    driver: bridge
